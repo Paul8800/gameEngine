@@ -17,6 +17,9 @@
 #include <cmath>
 #include <algorithm>
 #include <random>
+#include <thread>
+#include <mutex>
+#include <atomic>
 std::array<float, 120> makeRectangleEBO(const std::array<float, 3> location, const std::array<float, 3> dimensions, float textureSize);
 void genRectangleEBO(const std::array<float, 120> vertices, const std::array<int, 3> location, unsigned int textures[6]);
 
@@ -25,20 +28,25 @@ void processInput(GLFWwindow *window);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void init();
-std::array<float, 180> makeRectangle(const std::array<float, 3> location, const std::array<float, 3> dimensions, float textureSize);
 int loadTexture(std::string name, std::string pathToImg);
-void genRectangle(const std::array<float, 120> vertices, const std::array<int, 3> location);
 Shader* ourShader = nullptr;
 unsigned int textures[6];
 
-float generateHeight(int x, int z, int seed);
-std::vector<std::vector<std::vector<std::vector<float>>>> createWorld();
-float noise(float x, float z, int seed);
-std::mt19937& getRNG(int seed);
-void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>> world, std::array<float, 120> block);
+void stepPlayerPhysics(float step, float momentum, std::vector<std::vector<std::vector<std::vector<float>>>>& world);
 
-std::unordered_map<std::string, bool> keySwitches;
+float generateHeight(int x, int z, int seed);
+std::vector<std::vector<std::vector<std::vector<float>>>> createWorld(
+    std::vector<std::vector<std::vector<std::vector<float>>>>& world,
+    const std::array<float, 2> genTL, const std::array<float, 2> genBR);  //world[+/-][x][+/-][z][y] 
+
+ float noise(float x, float z, int seed);
+std::mt19937& getRNG(int seed);
+void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>>& world, std::array<float, 120> block);
+
+std::unordered_map<std::string, int> keySwitches;
 std::unordered_map<std::string, bool> keyHeld;
+
+std::atomic<bool> is_thread_running(false); // Atomic flag to track if a thread is running
 
 const unsigned int SCR_WIDTH = 845;
 const unsigned int SCR_HEIGHT = 480;
@@ -46,7 +54,7 @@ const unsigned int SCR_HEIGHT = 480;
 GLFWmonitor* monitor;
 const GLFWvidmode* mode;
 
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -59,7 +67,7 @@ float pitch =  0.0f;
 float roll =     0.0f;
 float lastX =  800.0f / 2.0;
 float lastY =  600.0 / 2.0;
-float fov   =  45.0f;
+float fov   =  90.0f;
 
 int main()
 {
@@ -133,12 +141,8 @@ int main()
     // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
     // glBindVertexArray(0);
 
-    unsigned int grassTexture = loadTexture("grass", "img/grass.png");
-    unsigned int luckyBlockTexture = loadTexture("luckyBlock", "img/luckyBlock.png");
-    unsigned int crateTexture = loadTexture("crate", "img/diamondOre.png");
-    unsigned int dirtTexture = loadTexture("dirt", "img/planks.png");
-
-    std::vector<std::vector<std::vector<std::vector<float>>>> world = createWorld();
+    std::vector<std::vector<std::vector<std::vector<float>>>> world;
+    createWorld(world, {100, 100}, {-100, -100});
     std::array<float, 120> block = makeRectangleEBO({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
     glBufferData(GL_ARRAY_BUFFER, block.size() * sizeof(float), block.data(), GL_STATIC_DRAW);
 
@@ -253,7 +257,14 @@ int main()
         //glActiveTexture(GL_TEXTURE0);
         //glBindTexture(GL_TEXTURE_2D, grassTexture);
         //ourShader->setInt("texture1", 0);
+        
+        //if (cameraPos[0]+100
+          //createWorld(world, {100, 100}, {-100, -100});
+
         loadWorld(world, block);
+        float momentum = 1;
+        if (keySwitches["M"] == 1) stepPlayerPhysics(deltaTime, momentum, world);
+
         
         /*
         glActiveTexture(GL_TEXTURE0);
@@ -288,6 +299,27 @@ int main()
     // ------------------------------------------------------------------
     glfwTerminate();
     return 0;
+}
+
+void drawTree(std::array<float, 3> location, char* trunk, char* leaves) {
+  for (int i = 0; i<5; i++)  {
+
+  }
+}
+
+void stepPlayerPhysics(float step, float momentum, std::vector<std::vector<std::vector<std::vector<float>>>>& world) {
+  int x = std::round(cameraPos[0]);
+  int z = std::round(cameraPos[2]+3);
+  if (cameraPos[1] > std::ceil(world[x < 0 ? 0: 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)])+2){
+
+    std::cout << world[x < 0 ? 0: 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]+2 << std::endl;
+    cameraPos[1] += -100*step * momentum;
+  }
+  if (cameraPos[1] < std::ceil(world[x < 0 ? 0: 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)])+2){ 
+    std::cout << "WORLD:  " << std::round(world[x < 0 ? 0: 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]) << std::endl;
+    std::cout << "PLAYER:  " << cameraPos[1] << std::endl;
+    cameraPos[1] = std::ceil(world[x < 0 ? 0: 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)])+2;
+  }
 }
 
 std::mt19937& getRNG(int seed) {
@@ -328,33 +360,37 @@ float noise(float x, float z, int seed) {
     return distribution(generator) * (0.5f * (std::sin(x) + std::cos(z)) + 0.5f);
 }
 
-std::vector<std::vector<std::vector<std::vector<float>>>> createWorld() { //world[+/-][x][+/-][z][y] 
-  std::vector<std::vector<std::vector<std::vector<float>>>> world; // 4D array
+std::vector<std::vector<std::vector<std::vector<float>>>> createWorld(
+    std::vector<std::vector<std::vector<std::vector<float>>>>& world,
+    const std::array<float, 2> genTL, const std::array<float, 2> genBR) { //world[+/-][x][+/-][z][y] 
   
-  const int WORLD_WIDTH = 100;
   const float WORLD_HEIGHT = 128;
-  const int WORLD_DEPTH = 100;
+
     int i = 0;
-    world.push_back({});//Negative x coordinates
-    world.push_back({});//Positive x coordinates
-    for (int x = -WORLD_WIDTH; x < WORLD_WIDTH; ++x) {
+    if (world.size() < 2) {
+      world.push_back({});//Negative x coordinates
+      world.push_back({});//Positive x coordinates
+    }
+    for (int x = genBR[0]; x <= genTL[0]; ++x) {
       if (world[x < 0 ? 0 : 1].size() < std::abs(x)+1) world[x < 0 ? 0 : 1].resize(std::abs(x)+1);
-      if (x < 0)  world[0][std::abs(x)] = std::vector<std::vector<float>>();//.push_back({});//-x coords
-      if (x >= 0) world[1][std::abs(x)] = std::vector<std::vector<float>>();//.push_back({});//+x coords
-      world[x < 0 ? 0 : 1][std::abs(x)].resize(2);
-      world[x < 0 ? 0 : 1][std::abs(x)][0] = std::vector<float>();//Positive x coordinates
-      world[x < 0 ? 0 : 1][std::abs(x)][1] = std::vector<float>();//Positive x coordinates
-                                             //
-      for (int z = -WORLD_DEPTH; z < WORLD_DEPTH; ++z) {
+      //if (x < 0)  world[0][std::abs(x)] = std::vector<std::vector<float>>();//.push_back({});//-x coords
+      //if (x >= 0) world[1][std::abs(x)] = std::vector<std::vector<float>>();//.push_back({});//+x coords
+      if (world[x < 0 ? 0 : 1][std::abs(x)].empty()) { world[x < 0 ? 0 : 1][std::abs(x)].resize(2);}
+      //world[x < 0 ? 0 : 1][std::abs(x)].resize(2);
+      //if (world[x < 0 ? 0 : 1][std::abs(x)][0].empty()) world[x < 0 ? 0 : 1][std::abs(x)][0] = std::vector<float>();//Positive x coordinates
+      //if (world[x < 0 ? 0 : 1][std::abs(x)][1].empty()) world[x < 0 ? 0 : 1][std::abs(x)][1] = std::vector<float>();//Positive x coordinates
+      //if (world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1].empty()) { world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1].resize(1);}
+                                             
+      for (int z = genBR[1]; z <= genTL[1]; ++z) {
         // Get the height based on the noise function
-        float height = static_cast<float>(generateHeight(x, z, 42));
+        float height = std::round(static_cast<float>(generateHeight(x, z, 42)));
         // Clamp the height to the maximum WORLD_HEIGHT
-        height = std::min(height, WORLD_HEIGHT - 1);
+        //height = std::min(height, WORLD_HEIGHT - 1);
         //Add each height for  each x,z coords
         int xType = x < 0 ? 0 : 1;  int zType = z < 0 ? 0 : 1; 
 
         if (world[xType][std::abs(x)][zType].size() < std::abs(z)+1) world[xType][std::abs(x)][zType].resize(std::abs(z)+1);
-        world[xType][std::abs(x)][zType][std::abs(z)] = height;//-/+z coords
+        if (!world[xType][std::abs(x)][zType][std::abs(z)]) world[xType][std::abs(x)][zType][std::abs(z)] = height;//-/+z coords
         }
         i++;
         std::cout << i << std::endl;
@@ -362,10 +398,25 @@ std::vector<std::vector<std::vector<std::vector<float>>>> createWorld() { //worl
     return world;
 }
 
-void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>> world, std::array<float, 120> block) {
-  const int WORLD_WIDTH = 100; //render distances
+void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>>& world, std::array<float, 120> block) {
+  const int WORLD_WIDTH = 50; //render distances
   const int WORLD_HEIGHT = 128;
-  const int WORLD_DEPTH = 100;
+  const int WORLD_DEPTH = 50;
+  //createWorld(world, {50, -90}, {-50, -150});
+
+  auto genChunkThread = [&](float chunkx, float chunkz) {
+    if (is_thread_running.load()) {
+        return; // Return early if a thread is already running
+    }
+    is_thread_running.store(true);
+    
+    //std::cout << "STARTING" << std::endl;
+    createWorld(world, {100*chunkx, 100*chunkz}, {100*chunkx-100, 100*chunkz-100}); //first {100, 0} {-100, -200}    static{100, 100}, {-100, -100}   should{-100, 100}, {-200, -100}
+    //createWorld(world, {50, -50}, {-50, -150}); //first {100, 0} {-100, -200}    static{100, 100}, {-100, -100}   should{-100, 100}, {-200, -100}
+    //std::cout << "ENDING" << std::endl;
+
+    is_thread_running.store(false);
+    };
   
   for (int x = cameraPos[0]-WORLD_WIDTH; x < cameraPos[0]+WORLD_WIDTH; ++x) {
       for (int z = cameraPos[2]-WORLD_DEPTH; z < cameraPos[2]+WORLD_DEPTH; ++z) {
@@ -374,9 +425,25 @@ void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>> world, 
               (std::abs(x))   < world[x < 0 ? 0 : 1].size() &&
               (z < 0 ? 0 : 1) < world[x < 0 ? 0 : 1][std::abs(x)].size() &&
               (std::abs(z))   < world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1].size()
-              )
-          for (int y = world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]; y < world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]+1; ++y) {
-                  genRectangleEBO(block, {x, y, z}, textures); // Your function to create a cube at (x, y, z)
+              ){
+                for (int y = world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]; y < world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]+1; ++y) {
+                  if (world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]) genRectangleEBO(block, {x, y, z}, textures); // Your function to create a cube at (x, y, z)
+          }} else if (!is_thread_running.load()){
+            float chunkx = std::ceil(x/100.0f);
+            float chunkz = std::ceil(z/100.0f);
+            /*
+            std::cout << chunkx << std::endl;
+            std::cout << z << std::endl;
+            std::cout << chunkz << std::endl;
+            std::cout << std::round(cameraPos[0]) << ", " << std::round(cameraPos[1]) << ", " << std::round(cameraPos[2]) << std::endl;
+            std::cout << std::round(x) << ", " << std::round(z) << std::endl;
+            std::cout << 50*chunkx+50 << ", " << 50*chunkz+50 << " || " << 50*chunkx-50 << ", " << 50*chunkz-50 << std::endl;
+            std::cout << "WORLD" << std::endl;*/
+
+            //createWorld(world, {50*chunkx+50, 50*chunkz+50}, {50*chunkx-50, 50*chunkz-50}); //first {100, 0} {-100, -200}    static{50, 50}, {-50, -50}   should{50, 0}, {-50, -100}
+            std::thread(genChunkThread, chunkx, chunkz).detach();
+
+            
           }
       }
   }
@@ -384,8 +451,8 @@ void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>> world, 
 
 // Function to create the world
 void init(){
-    keySwitches["F11"] = false;keySwitches["ESCAPE"] = false;
-    keyHeld["F11"] = false;keyHeld["ESCAPE"] = false;
+    keySwitches["F11"] = 0;keySwitches["ESCAPE"] = 0;keySwitches["M"] = 1;
+    keyHeld["F11"] = false;keyHeld["ESCAPE"] = false;keyHeld["M"] = false;
 }
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
@@ -413,26 +480,38 @@ void processInput(GLFWwindow *window)
       cameraPos -= glm::vec3(0.0f, verticalSpeed, 0.0f);
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
       cameraPos += glm::vec3(0.0f, verticalSpeed, 0.0f);
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+      std::cout << std::round(cameraPos[0]) << ", " << std::round(cameraPos[1]) << ", " << std::round(cameraPos[2]) << std::endl;
+
+
+
+    if (glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS && !keyHeld["M"]) {
+      keyHeld["M"] = true;
+      keySwitches["M"] += 1;
+      if (keySwitches["M"] > 2) keySwitches["M"] = 0;
+    } else if (glfwGetKey(window, GLFW_KEY_M) != GLFW_PRESS) {
+      keyHeld["M"] = false;
+    }
 
 
     if (glfwGetKey(window, GLFW_KEY_F11) == GLFW_PRESS && !keyHeld["F11"]) {
-      if (!keySwitches["F11"]) {
+      if (keySwitches["F11"] != 1) {
       glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, 0);
-      keySwitches["F11"]= true;
+      keySwitches["F11"]= 1;
       keyHeld["F11"] = true;
     } else {
       glfwSetWindowMonitor(window, NULL, 400, 300, 800, 600, 0);
-      keySwitches["F11"] = false;
+      keySwitches["F11"] = 0;
     }keyHeld["F11"] = true;
     }else if(glfwGetKey(window, GLFW_KEY_F11) != GLFW_PRESS){keyHeld["F11"] = false;}
 
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS && !keyHeld["ESCAPE"]) {
       if (!keySwitches["ESCAPE"]) {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        keySwitches["ESCAPE"] = true;
+        keySwitches["ESCAPE"] = 1;
       } else {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        keySwitches["ESCAPE"] = false;
+        keySwitches["ESCAPE"] = 0;
       }
       keyHeld["ESCAPE"] = true;
     } else if (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS) {keyHeld["ESCAPE"] = false;}
@@ -450,7 +529,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
-  if (keySwitches["ESCAPE"]) {firstMouse=true; return;}
+  if (keySwitches["ESCAPE"] == 1) {firstMouse=true; return;}
   if (firstMouse) {
     lastX = xpos;
     lastY = ypos;
@@ -482,76 +561,6 @@ if (fov < 1.0f)
   fov = 1.0f;
 if (fov > 100.0f)
   fov = 100.0f;
-}
-
-
-
-std::array<float, 180> makeRectangle(const std::array<float, 3> location, const std::array<float, 3> dimensions, float textureSize) {
-    float corners[] = { 
-        location[0], location[1], location[2],                                             // top-left front
-        location[0], location[1], location[2] - dimensions[2],                             // top-left back
-        location[0] + dimensions[0], location[1], location[2] - dimensions[2],             // top-right back
-        location[0] + dimensions[0], location[1], location[2],                             // top-right front
-        location[0], location[1] - dimensions[1], location[2],                             // bottom-left front
-        location[0], location[1] - dimensions[1], location[2] - dimensions[2],             // bottom-left back
-        location[0] + dimensions[0], location[1] - dimensions[1], location[2] - dimensions[2], // bottom-right back
-        location[0] + dimensions[0], location[1] - dimensions[1], location[2]              // bottom-right front
-    };
-
-    float textureCorners[] = { 
-        0.0f, 0.0f,
-        0.0f, textureSize,  
-        textureSize, textureSize,
-        textureSize, 0.0f,
-    };
-
-    std::array<float, 180> vertices = {};
-    int face_indices[] = {
-        0, 1, 2, 2, 3, 0,
-        1, 5, 6, 6, 2, 1,
-        7, 6, 5, 5, 4, 7,
-        4, 0, 3, 3, 7, 4,
-        4, 5, 1, 1, 0, 4,
-        3, 2, 6, 6, 7, 3
-    };
-
-    int j = 0;
-    int ti = 0;
-    for (int i = 0; i < 36; i++) {
-        int index = face_indices[i];
-        vertices[j] = corners[index * 3];
-        vertices[j + 1] = corners[index * 3 + 1];
-        vertices[j + 2] = corners[index * 3 + 2];
-        if((i) % 3 != 0 || i-1 == 0) {
-          vertices[j + 3] = textureCorners[(ti % 4) * 2]; // % 4 for texture coordinates
-          vertices[j + 4] = textureCorners[(ti % 4) * 2 + 1]; // % 4 for texture coordinates
-        }
-               
-        if((i+1) % 3 == 0 && i != 0 && j+5+4 <= 180){
-          vertices[j + 5 + 3] = textureCorners[(ti % 4) * 2]; // % 4 for texture coordinates
-          vertices[j + 5 + 4] = textureCorners[(ti % 4) * 2 + 1]; // % 4 for texture coordinates
-          ti--;
-        }
-
-        j += 5;
-        ti++;
-        //if (i % 6 == 0) ti = 0;
-    }
-
-    //glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);   // for std::arrays
-    //glDrawArrays(GL_TRIANGLES, 0, 36);
-    return vertices;
-}
-
-void genRectangle(const std::array<float, 120> vertices, const std::array<int, 3> location) {
-  glm::mat4 model = glm::mat4(1.0f);
-  glm::vec3 translation(location[0], location[1], location[2]);
-  model = glm::translate(model, translation);
-
-  ourShader->setMat4("model", model);
-  //glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
-                                                                                          //
-  glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
 int loadTexture(std::string name, std::string pathToImg) {
