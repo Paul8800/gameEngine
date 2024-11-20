@@ -1,4 +1,4 @@
-//RC: g++ -o /home/paul/NeoVimProjects/temp/temp app.cpp glad/glad.c -I./glad -lglfw -lGL -lX11 -lpthread -lXrandr -lXi -ldl
+//RC: g++ -g -o /home/paul/NeoVimProjects/temp/temp app.cpp glad/glad.c -I./glad -lglfw -lGL -lX11 -lpthread -lXrandr -lXi -ldl
 #include "include/glad/glad.h"
 #include <GLFW/glfw3.h>
 #include "include/glm/glm.hpp"
@@ -9,6 +9,7 @@
 #include "include/stb_image.h"
 
 #include "Shader.h"
+#include "world.h"
 
 #include <iostream>
 #include <unordered_map>
@@ -43,9 +44,9 @@ std::vector<std::vector<std::vector<std::vector<float>>>> createWorld(
     std::vector<std::vector<std::vector<std::vector<float>>>>& world,
     const std::array<float, 2> genTL, const std::array<float, 2> genBR);  //world[+/-][x][+/-][z][y] 
 
- float noise(float x, float z, int seed);
+float noise(float x, float z, int seed);
 std::mt19937& getRNG(int seed);
-void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>>& world, std::array<float, 120> block);
+void loadWorld(world world, std::array<float, 120> block);
 void drawTree(std::array<float, 3> location, unsigned int trunk[], unsigned int leaves[], std::array<float, 120> block);
 
 std::unordered_map<std::string, int> keySwitches;
@@ -146,8 +147,14 @@ int main()
     // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
     // glBindVertexArray(0);
 
-    std::vector<std::vector<std::vector<std::vector<float>>>> world;
-    createWorld(world, {100, 100}, {-100, -100});
+    //std::vector<std::vector<std::vector<std::vector<float>>>> world;
+    //createWorld(world, {100, 100}, {-100, -100});
+    //world world = new world({100, 100}, {-100, -100});
+
+    //world* world = new world({100, 100}, {-100, -100});
+
+    world world({100, 100}, {-100, -100});
+
     std::array<float, 120> block = makeRectangleEBO({0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, 1.0f);
     glBufferData(GL_ARRAY_BUFFER, block.size() * sizeof(float), block.data(), GL_STATIC_DRAW);
 
@@ -281,7 +288,7 @@ int main()
 
         loadWorld(world, block);
         float momentum = 1;
-        if (keySwitches["M"] == 1) stepPlayerPhysics(deltaTime, momentum, world);
+        //if (keySwitches["M"] == 1) stepPlayerPhysics(deltaTime, momentum, world);
         drawTree({0, 10, 0}, trunk, leaves, block);
         
         /*
@@ -419,7 +426,7 @@ std::vector<std::vector<std::vector<std::vector<float>>>> createWorld(
     return world;
 }
 
-void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>>& world, std::array<float, 120> block) {
+void loadWorld(world world, std::array<float, 120> block) {
   const int WORLD_WIDTH = 50; //render distances
   const int WORLD_HEIGHT = 128;
   const int WORLD_DEPTH = 50;
@@ -435,7 +442,8 @@ void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>>& world,
     is_thread_running.store(true);
     
     //std::cout << "STARTING" << std::endl;
-    createWorld(world, {100*chunkx, 100*chunkz}, {100*chunkx-100, 100*chunkz-100}); //first {100, 0} {-100, -200}    static{100, 100}, {-100, -100}   should{-100, 100}, {-200, -100}
+    //createWorld(world, {100*chunkx, 100*chunkz}, {100*chunkx-100, 100*chunkz-100}); //first {100, 0} {-100, -200}    static{100, 100}, {-100, -100}   should{-100, 100}, {-200, -100}
+    world.genWorld({100*chunkx, 100*chunkz}, {100*chunkx-100, 100*chunkz-100});
     //createWorld(world, {50, -50}, {-50, -150}); //first {100, 0} {-100, -200}    static{100, 100}, {-100, -100}   should{-100, 100}, {-200, -100}
     //std::cout << "ENDING" << std::endl;
 
@@ -445,6 +453,10 @@ void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>>& world,
   for (int x = cameraPos[0]-WORLD_WIDTH; x < cameraPos[0]+WORLD_WIDTH; ++x) {
       for (int z = cameraPos[2]-WORLD_DEPTH; z < cameraPos[2]+WORLD_DEPTH; ++z) {
           // Place cubes from the ground up to the height
+          for (int y = 0; y < 20; y++) {
+            if (world.getBlock(x, y, z) == 0) genRectangleEBO(block, {x, y, z}, textures);
+          }
+          continue;/*
           if ((x < 0 ? 0 : 1) < world.size() &&
               (std::abs(x))   < world[x < 0 ? 0 : 1].size() &&
               (z < 0 ? 0 : 1) < world[x < 0 ? 0 : 1][std::abs(x)].size() &&
@@ -457,20 +469,20 @@ void loadWorld(std::vector<std::vector<std::vector<std::vector<float>>>>& world,
           }} else if (!is_thread_running.load()){
             float chunkx = std::ceil(x/100.0f);
             float chunkz = std::ceil(z/100.0f);
-            /*
+            
             std::cout << chunkx << std::endl;
             std::cout << z << std::endl;
             std::cout << chunkz << std::endl;
             std::cout << std::round(cameraPos[0]) << ", " << std::round(cameraPos[1]) << ", " << std::round(cameraPos[2]) << std::endl;
             std::cout << std::round(x) << ", " << std::round(z) << std::endl;
             std::cout << 50*chunkx+50 << ", " << 50*chunkz+50 << " || " << 50*chunkx-50 << ", " << 50*chunkz-50 << std::endl;
-            std::cout << "WORLD" << std::endl;*/
+            std::cout << "WORLD" << std::endl;
 
             //createWorld(world, {50*chunkx+50, 50*chunkz+50}, {50*chunkx-50, 50*chunkz-50}); //first {100, 0} {-100, -200}    static{50, 50}, {-50, -50}   should{50, 0}, {-50, -100}
             std::thread(genChunkThread, chunkx, chunkz).detach();
 
             
-          }
+          *///} */
       }
   }
 }

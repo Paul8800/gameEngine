@@ -16,7 +16,9 @@ class player
 public:
     unsigned int ID;
     string username;
-    float health;
+    float health = 100;
+
+    float acceleration = 0;
     
     // constructor generates the shader on the fly
     // ------------------------------------------------------------------------
