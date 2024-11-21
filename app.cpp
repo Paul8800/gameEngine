@@ -47,7 +47,6 @@ std::vector<std::vector<std::vector<std::vector<float>>>> createWorld(
 float noise(float x, float z, int seed);
 std::mt19937& getRNG(int seed);
 void loadWorld(world world, std::array<float, 120> block);
-void drawTree(std::array<float, 3> location, unsigned int trunk[], unsigned int leaves[], std::array<float, 120> block);
 
 std::unordered_map<std::string, int> keySwitches;
 std::unordered_map<std::string, bool> keyHeld;
@@ -290,7 +289,6 @@ int main()
         loadWorld(world, block);
         float momentum = 1;
         //if (keySwitches["M"] == 1) stepPlayerPhysics(deltaTime, momentum, world);
-        drawTree({0, 10, 0}, trunk, leaves, block);
         
         /*
         glActiveTexture(GL_TEXTURE0);
@@ -325,15 +323,6 @@ int main()
     // ------------------------------------------------------------------
     glfwTerminate();
     return 0;
-}
-
-void drawTree(std::array<float, 3> location, unsigned int trunk[], unsigned int leaves[], std::array<float, 120> block) {
-  float x = location[0];
-  float y = location[1];
-  float z = location[2];
-  for (int i = 0; i<5; i++) { //Drawing Trunk
-   genRectangleEBO(block, {x, y+i, z}, trunk); 
-  }
 }
 
 void stepPlayerPhysics(float step, float momentum, std::vector<std::vector<std::vector<std::vector<float>>>>& world) {
@@ -432,9 +421,6 @@ void loadWorld(world world, std::array<float, 120> block) {
   const int WORLD_HEIGHT = 128;
   const int WORLD_DEPTH = 50;
 
-    std::mt19937 gen(42); 
-    std::uniform_int_distribution<> dist(1, 1000); // Uniform distribution between 1 and 1000
-  //createWorld(world, {50, -90}, {-50, -150});
 
   auto genChunkThread = [&](float chunkx, float chunkz) {
     if (is_thread_running.load()) {
@@ -458,6 +444,12 @@ void loadWorld(world world, std::array<float, 120> block) {
             if (world.getBlock(x, y, z) == 1) genRectangleEBO(block, {x, y, z}, textures);
             if (world.getBlock(x, y, z) == 2) genRectangleEBO(block, {x, y, z}, trunk);
             if (world.getBlock(x, y, z) == 3) genRectangleEBO(block, {x, y, z}, leaves);
+            
+            if (world.getBlock(x, y, z) == -1 && !is_thread_running.load()) {
+              float chunkx = std::ceil(x/100.0f);
+              float chunkz = std::ceil(z/100.0f);
+              std::thread(genChunkThread, chunkx, chunkz).detach();
+            }
           }
           continue;/*
           if ((x < 0 ? 0 : 1) < world.size() &&
@@ -466,7 +458,6 @@ void loadWorld(world world, std::array<float, 120> block) {
               (std::abs(z))   < world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1].size()
               ){
 
-                if (dist(gen) == 1000) drawTree({x, world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]+1, z}, trunk, leaves, block);
                 for (int y = world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]; y < world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]+1; ++y) {
                   if (world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1][std::abs(z)]) genRectangleEBO(block, {x, y, z}, textures); // Your function to create a cube at (x, y, z)
           }} else if (!is_thread_running.load()){

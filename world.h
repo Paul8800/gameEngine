@@ -32,8 +32,18 @@ public:
     
 
     float getBlock(int x, int  y, int z) {
-      resizeWorld(x, y, z);
+      //resizeWorld(x, y, z);
+      //checksize(x, y, z);
+      if ((x < 0 ? 0 : 1) < coordinates.size() &&
+       (std::abs(x))   < coordinates[x < 0 ? 0 : 1].size() &&
+       (y < 0 ? 0 : 1) < coordinates[x < 0 ? 0 : 1][std::abs(x)].size() &&
+       (std::abs(y))   < coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1].size() &&
+       (z < 0 ? 0 : 1) < coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1][std::abs(y)].size() &&
+       (std::abs(z))   < coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1][std::abs(y)][z < 0 ? 0 : 1].size()
+       ){
       return coordinates[x<0 ? 0:1][std::abs(x)][y<0 ? 0:1][std::abs(y)][z<0 ? 0:1][std::abs(z)];
+      }
+      return -1.0f;
     }
 
     void setBlock(int x, int  y, int z, unsigned int block) {
@@ -45,7 +55,7 @@ public:
          (z < 0 ? 0 : 1) < coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1][std::abs(y)].size() &&
          (std::abs(z))   < coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1][std::abs(y)][z < 0 ? 0 : 1].size()
          ){
-      coordinates[x<0 ? 0:1][std::abs(x)][y<0 ? 0:1][std::abs(y)][z<0 ? 0:1][std::abs(z)] = block;}
+      coordinates[x<0 ? 0:1][std::abs(x)][y<0 ? 0:1][std::abs(y)][z<0 ? 0:1][std::abs(z)] = block;}                //Runtime Error here
     }
 
     void resizeWorld(int& x, int&  y, int& z) {
