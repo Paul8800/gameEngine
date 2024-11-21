@@ -220,6 +220,7 @@ int main()
     };
     for (int i=0; i<6; i++) trunk[i] = loadTexture("log", pathToLogImgs[i]);
 
+    for (int i=0; i<6; i++) leaves[i] = loadTexture("leaves", "img/oak_leaves.jpg");
 
 
 
@@ -454,7 +455,9 @@ void loadWorld(world world, std::array<float, 120> block) {
       for (int z = cameraPos[2]-WORLD_DEPTH; z < cameraPos[2]+WORLD_DEPTH; ++z) {
           // Place cubes from the ground up to the height
           for (int y = 0; y < 20; y++) {
-            if (world.getBlock(x, y, z) == 0) genRectangleEBO(block, {x, y, z}, textures);
+            if (world.getBlock(x, y, z) == 1) genRectangleEBO(block, {x, y, z}, textures);
+            if (world.getBlock(x, y, z) == 2) genRectangleEBO(block, {x, y, z}, trunk);
+            if (world.getBlock(x, y, z) == 3) genRectangleEBO(block, {x, y, z}, leaves);
           }
           continue;/*
           if ((x < 0 ? 0 : 1) < world.size() &&

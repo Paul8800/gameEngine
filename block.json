@@ -1,6 +1,10 @@
-    [
+[
   {
     "id": 0,
+    "name": "AirBlock"
+  },
+  {
+    "id": 1,
     "name": "GrassBlock"
   },
   {
