@@ -43,6 +43,7 @@ public:
        ){
       return coordinates[x<0 ? 0:1][std::abs(x)][y<0 ? 0:1][std::abs(y)][z<0 ? 0:1][std::abs(z)];
       }
+      //std::cout << x << ", " << y << ", " << z  << std::endl;
       return -1.0f;
     }
 
@@ -55,6 +56,7 @@ public:
          (z < 0 ? 0 : 1) < coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1][std::abs(y)].size() &&
          (std::abs(z))   < coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1][std::abs(y)][z < 0 ? 0 : 1].size()
          ){
+         //std::cout << "SETBLOCK:       (" << x << ", " << y << ", " << z << ")" << std::endl;
       coordinates[x<0 ? 0:1][std::abs(x)][y<0 ? 0:1][std::abs(y)][z<0 ? 0:1][std::abs(z)] = block;}                //Runtime Error here
     }
 
@@ -80,19 +82,19 @@ public:
         coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1][std::abs(y)].resize(2);
       } if ((std::abs(z))   >= coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1][std::abs(y)][z < 0 ? 0 : 1].size()) {
         coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1][std::abs(y)][z < 0 ? 0 : 1].resize(std::abs(z)+1);
+        //coordinates[x < 0 ? 0 : 1][std::abs(x)][y < 0 ? 0 : 1][std::abs(y)][z < 0 ? 0 : 1][std::abs(z)] = 0;
       }
-
     }
 
     void setTree(int x, int  y, int z) {
-      for (int i=0; i < 2; i++) {
+      for (int i=0; i < 2; i++) { // bottom fat part
         for (int j=0; j < 5; j++) {
           for (int k=0; k < 5; k++) {
             setBlock(x+j-2, y+i+3, z+k-2, 3);
           }
         }
       }
-      for (int i=0; i < 2; i++) {
+      for (int i=0; i < 2; i++) { //top skinny part
         for (int j=0; j < 3; j++) {
           for (int k=0; k < 3; k++) {
             setBlock(x+j-1, y+i+5, z+k-1, 3);
@@ -103,10 +105,10 @@ public:
     }
 
     void genWorld(std::array<float, 2> genTL, std::array<float, 2> genBR){
-      const float WORLD_HEIGHT = 1;
+      const float WORLD_HEIGHT = 20;
 
       std::mt19937 gen(42); 
-      std::uniform_int_distribution<> dist(1, 1000); // Uniform distribution between 1 and 1000
+      std::uniform_int_distribution<> dist(1, 10000); // Uniform distribution between 1 and 10000
 
 
       int i = 0;
@@ -117,11 +119,12 @@ public:
             int xType = x < 0 ? 0 : 1;  int zType = z < 0 ? 0 : 1; 
 
             setBlock(x, static_cast<int>(height), z, 1);// Set grass at height of terain
+            if (y != height && getBlock(x, y, z) == -1) setBlock(x, static_cast<int>(y), z, 0);// Else Set Air
 
-            if (dist(gen) == 1000) setTree(x, height+1, z);
+            if (dist(gen) == 10000) setTree(x, height+1, z);
             }
             i++;
-            std::cout << i << std::endl;
+            //std::cout << i << std::endl;
         }
       }
     }

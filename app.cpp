@@ -39,12 +39,6 @@ unsigned int textures[6];
 
 void stepPlayerPhysics(float step, float momentum, std::vector<std::vector<std::vector<std::vector<float>>>>& world);
 
-float generateHeight(int x, int z, int seed);
-std::vector<std::vector<std::vector<std::vector<float>>>> createWorld(
-    std::vector<std::vector<std::vector<std::vector<float>>>>& world,
-    const std::array<float, 2> genTL, const std::array<float, 2> genBR);  //world[+/-][x][+/-][z][y] 
-
-float noise(float x, float z, int seed);
 std::mt19937& getRNG(int seed);
 void loadWorld(world world, std::array<float, 120> block);
 
@@ -345,76 +339,6 @@ std::mt19937& getRNG(int seed) {
     return rng;
 }
 
-float generateHeight(int x, int z, int seed) {
-    float scale = 0.1f; // Adjust the scale to change the frequency of the noise
-    float persistence = 0.5f; // Control the roughness of the terrain
-    int octaves = 6; // Number of layers of noise
-    
-    float total = 0.0f;
-    float frequency = 0.25f;
-    float amplitude = 5.0f;
-    float maxValue = 0.0f;  // Used for normalizing result to 0.0 - 1.0
-
-    for (int i = 0; i < octaves; ++i) {
-        total += noise(x * scale * frequency, z * scale * frequency, seed + i) * amplitude;
-        
-        maxValue += amplitude;
-        
-        amplitude *= persistence;
-        frequency *= 2.0f;
-    }
-
-    float height = total / maxValue;
-    float maxHeight = 64.0f; // Maximum height of the terrain
-    return std::max(0.0f, height * maxHeight); // Ensure height is not below 0
-}
-
-// Perlin noise function
-float noise(float x, float z, int seed) {
-    std::mt19937 generator(seed); // Seed random generator
-    std::uniform_real_distribution<float> distribution(0.0f, 0.25f);
-
-    // Simple random noise
-    return distribution(generator) * (0.5f * (std::sin(x) + std::cos(z)) + 0.5f);
-}
-
-std::vector<std::vector<std::vector<std::vector<float>>>> createWorld(
-    std::vector<std::vector<std::vector<std::vector<float>>>>& world,
-    const std::array<float, 2> genTL, const std::array<float, 2> genBR) { //world[+/-][x][+/-][z][y] 
-  
-  const float WORLD_HEIGHT = 128;
-
-    int i = 0;
-    if (world.size() < 2) {
-      world.push_back({});//Negative x coordinates
-      world.push_back({});//Positive x coordinates
-    }
-    for (int x = genBR[0]; x <= genTL[0]; ++x) {
-      if (world[x < 0 ? 0 : 1].size() < std::abs(x)+1) world[x < 0 ? 0 : 1].resize(std::abs(x)+1);
-      //if (x < 0)  world[0][std::abs(x)] = std::vector<std::vector<float>>();//.push_back({});//-x coords
-      //if (x >= 0) world[1][std::abs(x)] = std::vector<std::vector<float>>();//.push_back({});//+x coords
-      if (world[x < 0 ? 0 : 1][std::abs(x)].empty()) { world[x < 0 ? 0 : 1][std::abs(x)].resize(2);}
-      //world[x < 0 ? 0 : 1][std::abs(x)].resize(2);
-      //if (world[x < 0 ? 0 : 1][std::abs(x)][0].empty()) world[x < 0 ? 0 : 1][std::abs(x)][0] = std::vector<float>();//Positive x coordinates
-      //if (world[x < 0 ? 0 : 1][std::abs(x)][1].empty()) world[x < 0 ? 0 : 1][std::abs(x)][1] = std::vector<float>();//Positive x coordinates
-      //if (world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1].empty()) { world[x < 0 ? 0 : 1][std::abs(x)][z < 0 ? 0 : 1].resize(1);}
-                                             
-      for (int z = genBR[1]; z <= genTL[1]; ++z) {
-        // Get the height based on the noise function
-        float height = std::round(static_cast<float>(generateHeight(x, z, 42)));
-        // Clamp the height to the maximum WORLD_HEIGHT
-        //height = std::min(height, WORLD_HEIGHT - 1);
-        //Add each height for  each x,z coords
-        int xType = x < 0 ? 0 : 1;  int zType = z < 0 ? 0 : 1; 
-
-        if (world[xType][std::abs(x)][zType].size() < std::abs(z)+1) world[xType][std::abs(x)][zType].resize(std::abs(z)+1);
-        if (!world[xType][std::abs(x)][zType][std::abs(z)]) world[xType][std::abs(x)][zType][std::abs(z)] = height;//-/+z coords
-        }
-        i++;
-        std::cout << i << std::endl;
-    }
-    return world;
-}
 
 void loadWorld(world world, std::array<float, 120> block) {
   const int WORLD_WIDTH = 50; //render distances
@@ -446,6 +370,7 @@ void loadWorld(world world, std::array<float, 120> block) {
             if (world.getBlock(x, y, z) == 3) genRectangleEBO(block, {x, y, z}, leaves);
             
             if (world.getBlock(x, y, z) == -1 && !is_thread_running.load()) {
+              std::cout << x << ", " << y << ", " << z << std::endl;
               float chunkx = std::ceil(x/100.0f);
               float chunkz = std::ceil(z/100.0f);
               std::thread(genChunkThread, chunkx, chunkz).detach();
